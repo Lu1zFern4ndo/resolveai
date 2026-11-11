@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 enum TipoErroCamera { permissaoNegada, cameraIndisponivel, falhaCompressao, desconhecido }
 
@@ -81,5 +82,22 @@ class CameraService {
     final bytes = await arquivo.length();
     if (bytes < 1024 * 1024) return '${(bytes / 1024).round()} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  static Future<String> salvarPermanente(String caminhoTemporario) async {
+    try {
+      final origem = File(caminhoTemporario);
+      if (!await origem.exists()) return caminhoTemporario;
+
+      final docs = await getApplicationDocumentsDirectory();
+      final pasta = Directory(p.join(docs.path, 'chamados'));
+      if (!await pasta.exists()) await pasta.create(recursive: true);
+
+      final destino = p.join(pasta.path, p.basename(caminhoTemporario));
+      await origem.copy(destino);
+      return destino;
+    } catch (_) {
+      return caminhoTemporario;
+    }
   }
 }

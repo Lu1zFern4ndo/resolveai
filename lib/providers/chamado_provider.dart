@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../core/models/chamado.dart';
 import '../core/models/proposta.dart';
 import '../core/services/notification_service.dart';
+import '../core/services/camera_service.dart';
 
 class ChamadoProvider extends ChangeNotifier {
   final List<Chamado> _chamados = [];
@@ -17,8 +18,13 @@ class ChamadoProvider extends ChangeNotifier {
   List<Proposta> propostasDo(String chamadoId) =>
       _propostas.where((p) => p.chamadoId == chamadoId).toList();
 
-  void criarChamado(Chamado chamado) {
-    _chamados.insert(0, chamado);
+  Future<void> criarChamado(Chamado chamado) async {
+    var c = chamado;
+    if (c.fotoPath != null) {
+      final caminho = await CameraService.salvarPermanente(c.fotoPath!);
+      c = c.copyWith(fotoPath: caminho);
+    }
+    _chamados.insert(0, c);
     notifyListeners();
   }
 
