@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "483820930603",
+    "project_id": "resolveai-18d16",
+    "storage_bucket": "resolveai-18d16.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:483820930603:android:d643fcd5cc30f2726e8c6e",
+        "android_client_info": {
+          "package_name": "br.uespi.resolveai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyByquw_kPRCFveis4ccO8xvZim52L95F-Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

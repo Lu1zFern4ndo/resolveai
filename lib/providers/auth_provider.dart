@@ -1,27 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../core/models/usuario.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final Map<String, ({String senha, Usuario usuario})> _contas = {
-    'cliente@teste.com': (
-    senha: '123456',
-    usuario: const Usuario(
-      id: 'u1',
-      nome: 'Cliente Teste',
-      email: 'cliente@teste.com',
-      tipo: TipoUsuario.cliente,
-    ),
-    ),
-    'prestador@teste.com': (
-    senha: '123456',
-    usuario: const Usuario(
-      id: 'p3', // mesmo id de um prestador do mock
-      nome: 'Carlos Pereira',
-      email: 'prestador@teste.com',
-      tipo: TipoUsuario.prestador,
-    ),
-    ),
-  };
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   Usuario? usuario;
   String? erro;
@@ -29,25 +13,55 @@ class AuthProvider extends ChangeNotifier {
 
   bool get logado => usuario != null;
 
+  AuthProvider() {
+    _restaurarSessao();
+  }
+
+  /// Se já havia sessão aberta, recarrega o perfil.
+  Future<void> _restaurarSessao() async {
+    final atual = _auth.currentUser;
+    if (atual == null) return;
+    try {
+      usuario = await _carregarPerfil(atual);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<Usuario> _carregarPerfil(User u) async {
+    final doc = await _db.collection('usuarios').doc(u.uid).get();
+    if (doc.exists) {
+      return Usuario.fromMap({...doc.data()!, 'id': u.uid});
+    }
+    return Usuario(
+      id: u.uid,
+      nome: u.email ?? 'Usuário',
+      email: u.email ?? '',
+      tipo: TipoUsuario.cliente,
+    );
+  }
+
   Future<bool> entrar(String email, String senha) async {
     carregando = true;
     erro = null;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 500)); // simula rede
-
-    final conta = _contas[email.trim().toLowerCase()];
-    if (conta == null || conta.senha != senha) {
-      erro = 'E-mail ou senha incorretos.';
+    try {
+      final cred = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: senha,
+      );
+      usuario = await _carregarPerfil(cred.user!);
       carregando = false;
       notifyListeners();
-      return false;
+      return true;
+    } on FirebaseAuthException catch (e) {
+      erro = _traduzir(e.code);
+    } catch (_) {
+      erro = 'Erro inesperado. Verifique sua conexão.';
     }
-
-    usuario = conta.usuario;
     carregando = false;
     notifyListeners();
-    return true;
+    return false;
   }
 
   Future<bool> cadastrar({
@@ -60,41 +74,64 @@ class AuthProvider extends ChangeNotifier {
     erro = null;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    final chave = email.trim().toLowerCase();
-
-    if (nome.trim().isEmpty || !chave.contains('@')) {
-      erro = 'Preencha nome e um e-mail válido.';
-    } else if (senha.length < 6) {
-      erro = 'A senha deve ter pelo menos 6 caracteres.';
-    } else if (_contas.containsKey(chave)) {
-      erro = 'Este e-mail já está cadastrado.';
-    }
-
-    if (erro != null) {
+    if (nome.trim().isEmpty) {
+      erro = 'Informe seu nome.';
       carregando = false;
       notifyListeners();
       return false;
     }
 
-    final novo = Usuario(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      nome: nome.trim(),
-      email: chave,
-      tipo: tipo,
-    );
-    _contas[chave] = (senha: senha, usuario: novo);
-    usuario = novo;
-
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: senha,
+      );
+      final novo = Usuario(
+        id: cred.user!.uid,
+        nome: nome.trim(),
+        email: email.trim().toLowerCase(),
+        tipo: tipo,
+      );
+      await _db.collection('usuarios').doc(novo.id).set(novo.toMap());
+      usuario = novo;
+      carregando = false;
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      erro = _traduzir(e.code);
+    } catch (_) {
+      erro = 'Erro inesperado. Verifique sua conexão.';
+    }
     carregando = false;
     notifyListeners();
-    return true;
+    return false;
   }
 
-  void sair() {
+  Future<void> sair() async {
+    await _auth.signOut();
     usuario = null;
     erro = null;
     notifyListeners();
+  }
+
+  String _traduzir(String code) {
+    switch (code) {
+      case 'invalid-email':
+        return 'E-mail inválido.';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'E-mail ou senha incorretos.';
+      case 'email-already-in-use':
+        return 'Este e-mail já está cadastrado.';
+      case 'weak-password':
+        return 'A senha deve ter pelo menos 6 caracteres.';
+      case 'network-request-failed':
+        return 'Sem conexão com a internet.';
+      case 'too-many-requests':
+        return 'Muitas tentativas. Tente novamente em instantes.';
+      default:
+        return 'Não foi possível concluir ($code).';
+    }
   }
 }
