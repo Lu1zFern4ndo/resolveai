@@ -1,26 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/models/prestador.dart';
-import '../../../core/utils/mock_data.dart';
 import '../../../providers/auth_provider.dart';
 import '../auth/navegacao.dart';
 
 class PerfilScreen extends StatelessWidget {
   const PerfilScreen({super.key});
 
-  Prestador? _buscarPrestador(String id) {
-    for (final p in prestadoresMock) {
-      if (p.id == id) return p;
-    }
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {
     final u = context.watch<AuthProvider>().usuario;
     if (u == null) return const Scaffold(body: SizedBox.shrink());
-
-    final dados = u.ehPrestador ? _buscarPrestador(u.id) : null;
     final tema = Theme.of(context);
 
     return Scaffold(
@@ -57,29 +47,18 @@ class PerfilScreen extends StatelessWidget {
                   title: const Text('E-mail'),
                   subtitle: Text(u.email),
                 ),
-                if (dados != null) ...[
+                if (u.ehPrestador) ...[
                   ListTile(
                     leading: const Icon(Icons.phone),
                     title: const Text('Telefone'),
-                    subtitle: Text(dados.telefone),
+                    subtitle: Text(u.telefone ?? '-'),
                   ),
                   ListTile(
                     leading: const Icon(Icons.build),
                     title: const Text('Especialidade'),
-                    subtitle: Text(dados.categoria.nome),
+                    subtitle: Text(u.especialidade?.nome ?? '-'),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.star, color: Colors.amber),
-                    title: const Text('Avaliação'),
-                    subtitle: Text(dados.avaliacao.toStringAsFixed(1)),
-                  ),
-                ] else if (u.ehPrestador)
-                  const ListTile(
-                    leading: Icon(Icons.info_outline),
-                    title: Text('Perfil profissional incompleto'),
-                    subtitle: Text(
-                        'Especialidade e telefone ainda não cadastrados.'),
-                  ),
+                ],
               ],
             ),
           ),

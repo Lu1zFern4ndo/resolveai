@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/chamado.dart';
-import '../../../core/models/prestador.dart';
 import '../../../core/models/proposta.dart';
 import '../../../core/utils/distance_utils.dart';
-import '../../../core/utils/mock_data.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/chamado_provider.dart';
 import '../../../providers/location_provider.dart';
@@ -15,12 +13,7 @@ import '../../widgets/foto_chamado.dart';
 class DashboardPrestadorScreen extends StatelessWidget {
   const DashboardPrestadorScreen({super.key});
 
-  Prestador? _buscarPrestador(String id) {
-    for (final p in prestadoresMock) {
-      if (p.id == id) return p;
-    }
-    return null;
-  }
+
 
   String _formatarDistancia(double km) =>
       km < 1
@@ -94,10 +87,10 @@ class DashboardPrestadorScreen extends StatelessWidget {
         .watch<AuthProvider>()
         .usuario;
 
-    final meu = usuario == null ? null : _buscarPrestador(usuario.id);
-    final filtrados = meu == null
+    final esp = usuario?.especialidade;
+    final filtrados = esp == null
         ? todos
-        : todos.where((c) => c.categoria == meu.categoria).toList();
+        : todos.where((c) => c.categoria == esp).toList();
 
     final itens = filtrados
         .map((c) =>

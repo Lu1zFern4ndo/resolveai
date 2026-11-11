@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../core/models/usuario.dart';
+import '../core/models/categoria_servico.dart';
 
 class AuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -64,12 +65,13 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     return false;
   }
-
   Future<bool> cadastrar({
     required String nome,
     required String email,
     required String senha,
     required TipoUsuario tipo,
+    CategoriaServico? especialidade,
+    String? telefone,
   }) async {
     carregando = true;
     erro = null;
@@ -77,6 +79,13 @@ class AuthProvider extends ChangeNotifier {
 
     if (nome.trim().isEmpty) {
       erro = 'Informe seu nome.';
+      carregando = false;
+      notifyListeners();
+      return false;
+    }
+    if (tipo == TipoUsuario.prestador &&
+        (especialidade == null || (telefone ?? '').trim().isEmpty)) {
+      erro = 'Informe especialidade e telefone.';
       carregando = false;
       notifyListeners();
       return false;
@@ -92,6 +101,8 @@ class AuthProvider extends ChangeNotifier {
         nome: nome.trim(),
         email: email.trim().toLowerCase(),
         tipo: tipo,
+        especialidade: tipo == TipoUsuario.prestador ? especialidade : null,
+        telefone: tipo == TipoUsuario.prestador ? telefone!.trim() : null,
       );
       await _db.collection('usuarios').doc(novo.id).set(novo.toMap());
       usuario = novo;
@@ -134,5 +145,10 @@ class AuthProvider extends ChangeNotifier {
       default:
         return 'Não foi possível concluir ($code).';
     }
+  }
+
+  void limparErro() {
+    erro = null;
+    notifyListeners();
   }
 }

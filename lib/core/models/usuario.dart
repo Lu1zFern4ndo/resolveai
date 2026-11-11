@@ -1,3 +1,5 @@
+import 'categoria_servico.dart';
+
 enum TipoUsuario { cliente, prestador }
 
 class Usuario {
@@ -5,12 +7,16 @@ class Usuario {
   final String nome;
   final String email;
   final TipoUsuario tipo;
+  final CategoriaServico? especialidade;
+  final String? telefone;
 
   const Usuario({
     required this.id,
     required this.nome,
     required this.email,
     required this.tipo,
+    this.especialidade,
+    this.telefone,
   });
 
   bool get ehCliente => tipo == TipoUsuario.cliente;
@@ -21,6 +27,8 @@ class Usuario {
     'nome': nome,
     'email': email,
     'tipo': tipo.name,
+    'especialidade': especialidade?.name,
+    'telefone': telefone,
   };
 
   factory Usuario.fromMap(Map<String, dynamic> map) => Usuario(
@@ -31,5 +39,9 @@ class Usuario {
           (t) => t.name == map['tipo'],
       orElse: () => TipoUsuario.cliente,
     ),
+    especialidade: map['especialidade'] == null
+        ? null
+        : CategoriaServico.fromName(map['especialidade'] as String?),
+    telefone: map['telefone'] as String?,
   );
 }
