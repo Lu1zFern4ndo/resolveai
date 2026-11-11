@@ -1,15 +1,19 @@
 # ResolveAí
 
 Aplicativo Flutter que conecta clientes a prestadores de serviços domésticos
-(encanadores, eletricistas, técnicos). Trabalho final de Programação para
-Dispositivos Móveis, UESPI.
+(encanadores, eletricistas, pedreiros, técnicos). O cliente abre um chamado
+com foto e localização, e os prestadores da especialidade enviam propostas.
+Trabalho final de Programação para Dispositivos Móveis, UESPI.
 
-## Recursos avançados implementados
+## Recursos implementados
 
-- **Geolocalização** (`geolocator`): posição do cliente e filtro de prestadores por raio
-- **Mapa** (`google_maps_flutter`): prestadores como marcadores
-- **Câmera** (`image_picker` + `flutter_image_compress`): foto do problema com compressão
-- **Notificações locais** (`flutter_local_notifications`): aviso quando chega uma proposta
+- **Geolocalização** (`geolocator`): posição do usuário, distância e filtro de prestadores por raio ajustável
+- **Mapa** (`google_maps_flutter`): prestadores e local do chamado como marcadores
+- **Câmera** (`image_picker` + `flutter_image_compress`): foto do problema, com compressão
+- **Notificações locais** (`flutter_local_notifications`): aviso ao cliente quando chega uma proposta
+- **Firebase Authentication**: cadastro e login reais, com sessão persistente
+- **Cloud Firestore**: chamados, propostas e perfis sincronizados em tempo real
+- **Foto na nuvem**: imagem comprimida guardada em base64 no documento do chamado
 
 ## Como rodar
 
@@ -28,6 +32,22 @@ Se a chave estiver restrita por pacote e SHA-1, cada desenvolvedor deve rodar
 `cd android; ./gradlew signingReport` e adicionar o próprio SHA-1 à chave no
 Google Cloud. Sem isso, o mapa fica cinza.
 
+### Firebase
+
+O projeto usa `lib/firebase_options.dart` e `android/app/google-services.json`.
+Para usar outro projeto Firebase, rode `flutterfire configure`, ative
+**Authentication (e-mail/senha)** e **Firestore**, e publique as regras de
+segurança descritas abaixo.
+
+## Como usar o app
+
+1. **Cadastre-se** como Cliente ou Prestador (o prestador informa telefone e especialidade)
+2. **Cliente:** veja prestadores no mapa, abra um chamado com foto e acompanhe as propostas em "Meus chamados"
+3. **Prestador:** veja os chamados da sua especialidade (com foto, mapa e distância) e envie propostas
+4. O cliente recebe uma **notificação** quando chega proposta e pode aceitá-la
+
+Para ver a notificação em tempo real, use dois aparelhos (cliente em um, prestador em outro).
+
 ## Estrutura
 
 ```
@@ -38,51 +58,34 @@ lib/
 │   └── utils/      distance_utils, mock_data
 ├── providers/      AuthProvider, LocationProvider, ChamadoProvider, FotoProvider
 └── ui/
-    ├── screens/    telas
-    └── widgets/    MapaPrestadores
+    ├── screens/    auth, cliente, prestador, perfil
+    └── widgets/    MapaPrestadores, MapaChamado, FotoChamado, FotoPreview
+test/               testes de distância, filtro e models
 ```
 
-## Como usar cada recurso (guia para telas)
+## Regras do Firestore
 
-| Necessidade | Como usar |
-|---|---|
-| Login | `context.read<AuthProvider>().entrar(email, senha)` devolve `true`/`false`; mensagem de erro em `auth.erro` |
-| Cadastro | `context.read<AuthProvider>().cadastrar(nome:, email:, senha:, tipo:)` |
-| Usuário logado | `context.watch<AuthProvider>().usuario` (`ehCliente` / `ehPrestador`) |
-| Sair | `context.read<AuthProvider>().sair()` |
-| Posição atual e erro de GPS | `context.watch<LocationProvider>()` (`lat`, `lng`, `erro`, `carregando`, `atualizar()`) |
-| Prestadores próximos | `loc.prestadoresProximos(lista, raioKm: 10)` devolve `PrestadorComDistancia` |
-| Mapa | `MapaPrestadores(centro: LatLng(...), prestadores: ...)` |
-| Foto no formulário | `context.read<FotoProvider>().capturar(OrigemFoto.camera)`; exibir com `Image.file(foto)` |
-| Criar chamado | `context.read<ChamadoProvider>().criarChamado(Chamado(...))` |
-| Chamados para o prestador | `ChamadoProvider.chamadosAbertos` |
-| Receber proposta + notificar | `ChamadoProvider.adicionarProposta(...)` já dispara a notificação |
-| Propostas de um chamado | `ChamadoProvider.propostasDo(chamadoId)` |
-| Aceitar proposta | `ChamadoProvider.aceitarProposta(propostaId)` |
+- `usuarios`: leitura e escrita apenas do próprio usuário
+- `chamados`: leitura para usuários logados; criação só com `clienteId` igual ao próprio uid
+- `propostas`: leitura, criação e atualização para usuários logados; sem exclusão
 
-## Contas de teste
+## Testes
 
-O login é fictício (em memória). Contas já cadastradas:
+```bash
+flutter test
+```
 
-| Tipo | E-mail | Senha |
-|---|---|---|
-| Cliente | `cliente@teste.com` | `123456` |
-| Prestador | `prestador@teste.com` | `123456` |
-
-Novas contas criadas pelo cadastro existem apenas enquanto o app está aberto.
-
-## Divisão de trabalho
-
-- **Dev A:** `core/`, `providers/`, configuração Android
-- **Dev B:** `ui/` (login, cadastro, formulário de chamado, telas do cliente e do prestador)
-
-Regra: o Dev B altera apenas `lib/ui/`. Mudanças em `core/` ou `providers/`
-são combinadas com o Dev A. As telas `tela_teste_*.dart` são provisórias e
-servem de exemplo de uso.
+Cobrem cálculo de distância, filtro por raio, ordenação e serialização dos models.
 
 ## Observações técnicas
 
 - `permission_handler` foi removido por exigir `compileSdk` 37, incompatível com o
   Android Gradle Plugin 9.1. Cada pacote pede a própria permissão.
-- Dados de prestadores são fictícios (`mock_data.dart`), centrados em Teresina-PI.
-- Os dados vivem apenas em memória: ao fechar o app, chamados e propostas se perdem.
+- `flutter_local_notifications` está fixado na versão 22.3.2, pois a 23 também exige `compileSdk` 37.
+- O Firebase Storage exige plano pago em projetos novos; por isso a foto (comprimida a ~800 px) é guardada em base64 no Firestore, respeitando o limite de 1 MB por documento.
+- As notificações são locais: funcionam com o app aberto ou em segundo plano. Com o app totalmente fechado, seria necessário FCM com Cloud Functions.
+- Prestadores do `mock_data.dart` (Teresina-PI) aparecem no mapa do cliente como dados de demonstração.
+
+## Autores
+
+Trabalho desenvolvido na UESPI, curso de Bacharelado em Ciência da Computação.
