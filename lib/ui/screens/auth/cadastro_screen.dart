@@ -125,8 +125,14 @@ class _CadastroScreenState extends State<CadastroScreen> {
                 initialValue: _especialidade,
                 decoration: const InputDecoration(labelText: 'Especialidade'),
                 items: CategoriaServico.values
-                    .map((c) =>
-                    DropdownMenuItem(value: c, child: Text(c.nome)))
+                    .map((c) => DropdownMenuItem(
+                  value: c,
+                  child: Row(children: [
+                    Icon(c.icone, size: 20, color: c.cor),
+                    const SizedBox(width: 8),
+                    Text(c.nome),
+                  ]),
+                ))
                     .toList(),
                 onChanged: (v) => setState(() => _especialidade = v),
                 validator: (v) =>

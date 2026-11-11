@@ -19,6 +19,7 @@ class HomeClienteScreen extends StatefulWidget {
 
 class _HomeClienteScreenState extends State<HomeClienteScreen> {
   CategoriaServico? _filtro;
+  double _raioKm = 10;
 
   void _abrirDetalhe(PrestadorComDistancia item) {
     final p = item.prestador;
@@ -33,7 +34,11 @@ class _HomeClienteScreenState extends State<HomeClienteScreen> {
           children: [
             Text(p.nome, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
-            Text('${p.categoria.nome} • ${item.distanciaFormatada}'),
+            Row(children: [
+              Icon(p.categoria.icone, size: 18, color: p.categoria.cor),
+              const SizedBox(width: 6),
+              Text('${p.categoria.nome} • ${item.distanciaFormatada}'),
+            ]),
             const SizedBox(height: 8),
             Row(children: [
               const Icon(Icons.star, size: 18, color: Colors.amber),
@@ -88,6 +93,7 @@ class _HomeClienteScreenState extends State<HomeClienteScreen> {
             Padding(
               padding: const EdgeInsets.all(6),
               child: ChoiceChip(
+                avatar: Icon(c.icone, size: 18),
                 label: Text(c.nome),
                 selected: _filtro == c,
                 onSelected: (_) => setState(() => _filtro = c),
@@ -98,10 +104,32 @@ class _HomeClienteScreenState extends State<HomeClienteScreen> {
     );
   }
 
+  Widget _seletorRaio() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          const Icon(Icons.radar, size: 20),
+          Expanded(
+            child: Slider(
+              value: _raioKm,
+              min: 1,
+              max: 30,
+              divisions: 29,
+              label: '${_raioKm.round()} km',
+              onChanged: (v) => setState(() => _raioKm = v),
+            ),
+          ),
+          Text('${_raioKm.round()} km'),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = context.watch<LocationProvider>();
-    final todos = loc.prestadoresProximos(prestadoresMock, raioKm: 10);
+    final todos = loc.prestadoresProximos(prestadoresMock, raioKm: _raioKm);
     final prestadores = _filtro == null
         ? todos
         : todos.where((i) => i.prestador.categoria == _filtro).toList();
@@ -134,6 +162,12 @@ class _HomeClienteScreenState extends State<HomeClienteScreen> {
           if (loc.erro != null) _bannerErro(loc),
           if (loc.carregando) const LinearProgressIndicator(),
           _filtros(),
+          _seletorRaio(),
+          if (prestadores.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Text('Nenhum prestador neste raio. Aumente a distância.'),
+            ),
           Expanded(
             child: MapaPrestadores(
               centro: LatLng(loc.lat, loc.lng),

@@ -24,7 +24,17 @@ class PropostasScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Meus chamados')),
       body: chamados.isEmpty
-          ? const Center(child: Text('Você ainda não abriu chamados.'))
+          ? const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.receipt_long_outlined,
+                size: 64, color: Colors.grey),
+            SizedBox(height: 8),
+            Text('Você ainda não abriu chamados.'),
+          ],
+        ),
+      )
           : ListView.builder(
         padding: const EdgeInsets.all(8),
         itemCount: chamados.length,
@@ -37,6 +47,10 @@ class PropostasScreen extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: ExpansionTile(
               initiallyExpanded: propostas.isNotEmpty && !fechado,
+              leading: CircleAvatar(
+                backgroundColor: c.categoria.cor.withValues(alpha: 0.15),
+                child: Icon(c.categoria.icone, color: c.categoria.cor),
+              ),
               title: Text(c.titulo),
               subtitle: Text(
                   '${c.categoria.nome} • ${_rotuloStatus(c.status)} • ${propostas.length} proposta(s)'),

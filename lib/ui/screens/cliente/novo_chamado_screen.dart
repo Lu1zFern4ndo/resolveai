@@ -21,6 +21,7 @@ class _NovoChamadoScreenState extends State<NovoChamadoScreen> {
   final _titulo = TextEditingController();
   final _descricao = TextEditingController();
   CategoriaServico? _categoria;
+  bool _enviando = false;
 
   @override
   void dispose() {
@@ -29,30 +30,40 @@ class _NovoChamadoScreenState extends State<NovoChamadoScreen> {
     super.dispose();
   }
 
-  void _enviar() {
+  Future<void> _enviar() async {
     if (!_form.currentState!.validate()) return;
 
     final fotoProv = context.read<FotoProvider>();
+    final chamadoProv = context.read<ChamadoProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     final agora = DateTime.now();
 
-    context.read<ChamadoProvider>().criarChamado(Chamado(
-          id: agora.millisecondsSinceEpoch.toString(),
-          titulo: _titulo.text.trim(),
-          descricao: _descricao.text.trim(),
-          categoria: _categoria!,
-          lat: widget.lat,
-          lng: widget.lng,
-          criadoEm: agora,
-          fotoPath: fotoProv.foto?.path,
-        ));
+    setState(() => _enviando = true);
 
-    // Limpa para o próximo chamado. ATENÇÃO: se o remover() do FotoProvider
-    // apagar o arquivo do disco, a foto do chamado quebra (ver observações).
-    fotoProv.remover();
+    try {
+      await chamadoProv.criarChamado(Chamado(
+        id: agora.millisecondsSinceEpoch.toString(),
+        titulo: _titulo.text.trim(),
+        descricao: _descricao.text.trim(),
+        categoria: _categoria!,
+        lat: widget.lat,
+        lng: widget.lng,
+        criadoEm: agora,
+        fotoPath: fotoProv.foto?.path,
+      ));
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Chamado enviado!')));
-    Navigator.pop(context);
+      fotoProv.remover();
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Chamado enviado!')));
+      navigator.pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _enviando = false);
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Não foi possível enviar. Verifique sua conexão.'),
+      ));
+    }
   }
 
   @override
@@ -70,20 +81,27 @@ class _NovoChamadoScreenState extends State<NovoChamadoScreen> {
               controller: _titulo,
               decoration: const InputDecoration(labelText: 'Título'),
               validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Informe um título' : null,
+              (v == null || v.trim().isEmpty) ? 'Informe um título' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _descricao,
               maxLines: 4,
               decoration:
-                  const InputDecoration(labelText: 'Descreva o problema'),
+              const InputDecoration(labelText: 'Descreva o problema'),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<CategoriaServico>(
               decoration: const InputDecoration(labelText: 'Categoria'),
               items: CategoriaServico.values
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c.nome)))
+                  .map((c) => DropdownMenuItem(
+                value: c,
+                child: Row(children: [
+                  Icon(c.icone, size: 20, color: c.cor),
+                  const SizedBox(width: 8),
+                  Text(c.nome),
+                ]),
+              ))
                   .toList(),
               onChanged: (v) => setState(() => _categoria = v),
               validator: (v) => v == null ? 'Escolha uma categoria' : null,
@@ -122,20 +140,28 @@ class _NovoChamadoScreenState extends State<NovoChamadoScreen> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(fotoProv.erro!.mensagem,
                     style:
-                        TextStyle(color: Theme.of(context).colorScheme.error)),
+                    TextStyle(color: Theme.of(context).colorScheme.error)),
               ),
             if (fotoProv.foto != null)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: FotoPreview(
                   arquivo: fotoProv.foto!,
-                  tamanho: fotoProv.tamanho.toString(),
+                  tamanho: fotoProv.tamanho ?? '',
                   onRemover: fotoProv.remover,
                 ),
               ),
             const SizedBox(height: 24),
             FilledButton(
-                onPressed: _enviar, child: const Text('Enviar chamado')),
+              onPressed: _enviando ? null : _enviar,
+              child: _enviando
+                  ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+                  : const Text('Enviar chamado'),
+            ),
           ],
         ),
       ),
