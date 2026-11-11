@@ -7,6 +7,8 @@ import '../core/models/proposta.dart';
 import '../core/services/camera_service.dart';
 import '../core/services/notification_service.dart';
 import '../core/utils/distance_utils.dart';
+import 'dart:convert';
+import 'dart:io';
 
 class ChamadoProvider extends ChangeNotifier {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -87,10 +89,20 @@ class ChamadoProvider extends ChangeNotifier {
 
   Future<void> criarChamado(Chamado chamado) async {
     var c = chamado.copyWith(clienteId: _uid ?? '');
+
     if (c.fotoPath != null) {
       final caminho = await CameraService.salvarPermanente(c.fotoPath!);
       c = c.copyWith(fotoPath: caminho);
+
+      try {
+        final bytes = await File(caminho).readAsBytes();
+        if (bytes.length <= 700 * 1024) {
+          c = c.copyWith(fotoBase64: base64Encode(bytes));
+        }
+      } catch (_) {
+      }
     }
+
     await _db.collection('chamados').doc(c.id).set(c.toMap());
   }
 

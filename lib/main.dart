@@ -9,10 +9,10 @@ import 'providers/auth_provider.dart';
 import 'providers/chamado_provider.dart';
 import 'providers/foto_provider.dart';
 import 'providers/location_provider.dart';
-import 'ui/screens/auth/login_screen.dart';
 import 'ui/screens/tela_teste_camera.dart';
 import 'ui/screens/tela_teste_notificacao.dart';
 import 'ui/widgets/mapa_prestadores.dart';
+import 'ui/screens/auth/porta_de_entrada.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,7 +49,7 @@ class MyApp extends StatelessWidget {
           border: OutlineInputBorder(),
         ),
       ),
-      home: const LoginScreen(),
+      home: const PortaDeEntrada(),
       routes: {
         '/dev': (_) => const TelaTeste(),
       },
@@ -57,7 +57,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Tela de teste do Dev A (acessível pela rota /dev, só em modo debug).
 class TelaTeste extends StatelessWidget {
   const TelaTeste({super.key});
 

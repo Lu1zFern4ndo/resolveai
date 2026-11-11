@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../cliente/home_cliente_screen.dart';
 import '../prestador/dashboard_prestador_screen.dart';
+import 'porta_de_entrada.dart';
 
-/// Leva o usuário logado para a tela inicial do seu tipo (cliente ou prestador).
 void irParaHome(BuildContext context) {
   final u = context.read<AuthProvider>().usuario;
   if (u == null) return;
@@ -15,6 +15,15 @@ void irParaHome(BuildContext context) {
           ? const DashboardPrestadorScreen()
           : const HomeClienteScreen(),
     ),
-    (_) => false,
+        (_) => false,
+  );
+}
+
+
+void irParaInicio(BuildContext context) {
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (_) => const PortaDeEntrada()),
+        (_) => false,
   );
 }

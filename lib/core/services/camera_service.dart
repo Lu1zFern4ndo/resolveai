@@ -64,9 +64,9 @@ class CameraService {
       final resultado = await FlutterImageCompress.compressAndGetFile(
         original.absolute.path,
         destino,
-        quality: 70,
-        minWidth: 1080,
-        minHeight: 1080,
+        quality: 60,
+        minWidth: 800,
+        minHeight: 800,
       );
 
       return resultado != null ? File(resultado.path) : original;

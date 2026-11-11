@@ -9,6 +9,7 @@ class Chamado {
   final String descricao;
   final CategoriaServico categoria;
   final String? fotoPath;
+  final String? fotoBase64;
   final double lat;
   final double lng;
   final StatusChamado status;
@@ -24,12 +25,18 @@ class Chamado {
     required this.criadoEm,
     this.clienteId = '',
     this.fotoPath,
+    this.fotoBase64,
     this.status = StatusChamado.aberto,
   });
+
+  bool get temFoto =>
+      (fotoBase64 != null && fotoBase64!.isNotEmpty) ||
+          (fotoPath != null && fotoPath!.isNotEmpty);
 
   Chamado copyWith({
     StatusChamado? status,
     String? fotoPath,
+    String? fotoBase64,
     String? clienteId,
   }) =>
       Chamado(
@@ -42,6 +49,7 @@ class Chamado {
         lng: lng,
         criadoEm: criadoEm,
         fotoPath: fotoPath ?? this.fotoPath,
+        fotoBase64: fotoBase64 ?? this.fotoBase64,
         status: status ?? this.status,
       );
 
@@ -52,6 +60,7 @@ class Chamado {
     'descricao': descricao,
     'categoria': categoria.name,
     'fotoPath': fotoPath,
+    'fotoBase64': fotoBase64,
     'lat': lat,
     'lng': lng,
     'status': status.name,
@@ -65,6 +74,7 @@ class Chamado {
     descricao: map['descricao'] as String? ?? '',
     categoria: CategoriaServico.fromName(map['categoria'] as String?),
     fotoPath: map['fotoPath'] as String?,
+    fotoBase64: map['fotoBase64'] as String?,
     lat: (map['lat'] as num).toDouble(),
     lng: (map['lng'] as num).toDouble(),
     status: StatusChamado.values.firstWhere(

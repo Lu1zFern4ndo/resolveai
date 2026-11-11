@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/chamado.dart';
@@ -11,6 +10,7 @@ import '../../../providers/chamado_provider.dart';
 import '../../../providers/location_provider.dart';
 import '../../screens/perfil/perfil_screen.dart';
 import '../../widgets/mapa_chamado.dart';
+import '../../widgets/foto_chamado.dart';
 
 class DashboardPrestadorScreen extends StatelessWidget {
   const DashboardPrestadorScreen({super.key});
@@ -94,13 +94,11 @@ class DashboardPrestadorScreen extends StatelessWidget {
         .watch<AuthProvider>()
         .usuario;
 
-// Se o prestador existe no mock, mostra só chamados da especialidade dele.
     final meu = usuario == null ? null : _buscarPrestador(usuario.id);
     final filtrados = meu == null
         ? todos
         : todos.where((c) => c.categoria == meu.categoria).toList();
 
-// Calcula a distância uma vez e ordena do mais perto ao mais longe.
     final itens = filtrados
         .map((c) =>
     (chamado: c, km: distanciaKm(loc.lat, loc.lng, c.lat, c.lng)))
@@ -134,14 +132,7 @@ class DashboardPrestadorScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (c.fotoPath != null)
-                  Image.file(
-                    File(c.fotoPath!),
-                    height: 140,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                  ),
+                FotoChamado(chamado: c),
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(

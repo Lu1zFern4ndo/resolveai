@@ -28,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _entrar() async {
     if (!_form.currentState!.validate()) return;
     final ok =
-        await context.read<AuthProvider>().entrar(_email.text, _senha.text);
+    await context.read<AuthProvider>().entrar(_email.text, _senha.text);
     if (ok && mounted) irParaHome(context);
   }
 
@@ -78,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     validator: (v) =>
-                        (v == null || v.isEmpty) ? 'Informe a senha' : null,
+                    (v == null || v.isEmpty) ? 'Informe a senha' : null,
                   ),
                   if (auth.erro != null)
                     Padding(
@@ -92,9 +92,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: auth.carregando ? null : _entrar,
                     child: auth.carregando
                         ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2))
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text('Entrar'),
                   ),
                   TextButton(
@@ -109,11 +109,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextButton(
                       onPressed: () => Navigator.pushNamed(context, '/dev'),
                       child: const Text('Telas de teste (debug)'),
-                    ),
-                    const Text(
-                      'Contas de teste:\ncliente@teste.com / prestador@teste.com\nsenha: 123456',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12),
                     ),
                   ],
                 ],

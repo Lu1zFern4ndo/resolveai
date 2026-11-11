@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/models/prestador.dart';
 import '../../../core/utils/mock_data.dart';
 import '../../../providers/auth_provider.dart';
-import '../auth/login_screen.dart';
+import '../auth/navegacao.dart';
 
 class PerfilScreen extends StatelessWidget {
   const PerfilScreen({super.key});
@@ -44,7 +44,7 @@ class PerfilScreen extends StatelessWidget {
           Center(
             child: Chip(
               avatar:
-                  Icon(u.ehPrestador ? Icons.handyman : Icons.person, size: 18),
+              Icon(u.ehPrestador ? Icons.handyman : Icons.person, size: 18),
               label: Text(u.ehPrestador ? 'Prestador' : 'Cliente'),
             ),
           ),
@@ -87,13 +87,10 @@ class PerfilScreen extends StatelessWidget {
           OutlinedButton.icon(
             icon: const Icon(Icons.logout),
             label: const Text('Sair'),
-            onPressed: () {
-              context.read<AuthProvider>().sair();
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (_) => false,
-              );
+            onPressed: () async {
+              await context.read<AuthProvider>().sair();
+              if (!context.mounted) return;
+              irParaInicio(context);
             },
           ),
         ],

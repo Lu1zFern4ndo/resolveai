@@ -10,21 +10,22 @@ class AuthProvider extends ChangeNotifier {
   Usuario? usuario;
   String? erro;
   bool carregando = false;
+  bool restaurando = true;
 
   bool get logado => usuario != null;
 
   AuthProvider() {
     _restaurarSessao();
   }
-
-  /// Se já havia sessão aberta, recarrega o perfil.
   Future<void> _restaurarSessao() async {
     final atual = _auth.currentUser;
-    if (atual == null) return;
-    try {
-      usuario = await _carregarPerfil(atual);
-      notifyListeners();
-    } catch (_) {}
+    if (atual != null) {
+      try {
+        usuario = await _carregarPerfil(atual);
+      } catch (_) {}
+    }
+    restaurando = false;
+    notifyListeners();
   }
 
   Future<Usuario> _carregarPerfil(User u) async {
