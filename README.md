@@ -10,10 +10,13 @@ Trabalho final de Programação para Dispositivos Móveis, UESPI.
 - **Geolocalização** (`geolocator`): posição do usuário, distância e filtro de prestadores por raio ajustável
 - **Mapa** (`google_maps_flutter`): prestadores e local do chamado como marcadores
 - **Câmera** (`image_picker` + `flutter_image_compress`): foto do problema, com compressão
-- **Notificações locais** (`flutter_local_notifications`): aviso ao cliente quando chega uma proposta
+- **Notificações locais** (`flutter_local_notifications`): avisos de nova proposta e de contraproposta
 - **Firebase Authentication**: cadastro e login reais, com sessão persistente
 - **Cloud Firestore**: chamados, propostas e perfis sincronizados em tempo real
 - **Foto na nuvem**: imagem comprimida guardada em base64 no documento do chamado
+- **Propostas com horário**: o prestador escolhe data e hora de atendimento
+- **Negociação de valor**: cliente e prestador trocam contrapropostas até aceitar ou recusar
+- **Perfil do prestador**: o cliente vê nome, telefone, e-mail e especialidade
 
 ## Como rodar
 
@@ -36,17 +39,18 @@ Google Cloud. Sem isso, o mapa fica cinza.
 
 O projeto usa `lib/firebase_options.dart` e `android/app/google-services.json`.
 Para usar outro projeto Firebase, rode `flutterfire configure`, ative
-**Authentication (e-mail/senha)** e **Firestore**, e publique as regras de
-segurança descritas abaixo.
+**Authentication (e-mail/senha)** e **Firestore**, e publique as regras
+descritas abaixo.
 
 ## Como usar o app
 
 1. **Cadastre-se** como Cliente ou Prestador (o prestador informa telefone e especialidade)
 2. **Cliente:** veja prestadores no mapa, abra um chamado com foto e acompanhe as propostas em "Meus chamados"
-3. **Prestador:** veja os chamados da sua especialidade (com foto, mapa e distância) e envie propostas
-4. O cliente recebe uma **notificação** quando chega proposta e pode aceitá-la
+3. **Prestador:** veja os chamados da sua especialidade (com foto, mapa e distância) e envie propostas com valor e horário
+4. O cliente recebe uma **notificação**, pode ver o perfil do prestador e **aceitar, recusar ou combinar o valor**
+5. Na negociação, cada lado pode aceitar ou enviar nova contraproposta; o outro é avisado por notificação
 
-Para ver a notificação em tempo real, use dois aparelhos (cliente em um, prestador em outro).
+Para ver as notificações em tempo real, use dois aparelhos (cliente em um, prestador em outro).
 
 ## Estrutura
 
@@ -58,14 +62,14 @@ lib/
 │   └── utils/      distance_utils, mock_data
 ├── providers/      AuthProvider, LocationProvider, ChamadoProvider, FotoProvider
 └── ui/
-    ├── screens/    auth, cliente, prestador, perfil
-    └── widgets/    MapaPrestadores, MapaChamado, FotoChamado, FotoPreview
+    ├── screens/    auth, cliente, prestador, perfil, contraproposta
+    └── widgets/    MapaPrestadores, MapaChamado, FotoChamado, FotoPreview, perfil do prestador
 test/               testes de distância, filtro e models
 ```
 
 ## Regras do Firestore
 
-- `usuarios`: leitura e escrita apenas do próprio usuário
+- `usuarios`: leitura para usuários logados; escrita apenas do próprio usuário
 - `chamados`: leitura para usuários logados; criação só com `clienteId` igual ao próprio uid
 - `propostas`: leitura, criação e atualização para usuários logados; sem exclusão
 
