@@ -9,6 +9,7 @@ import '../../../providers/location_provider.dart';
 import '../../widgets/foto_chamado.dart';
 import '../../widgets/mapa_chamado.dart';
 import '../perfil/perfil_screen.dart';
+import 'minhas_propostas_screen.dart';
 
 class DashboardPrestadorScreen extends StatelessWidget {
   const DashboardPrestadorScreen({super.key});
@@ -17,62 +18,102 @@ class DashboardPrestadorScreen extends StatelessWidget {
       ? '${(km * 1000).round()} m'
       : '${km.toStringAsFixed(1).replaceAll('.', ',')} km';
 
+  String _formatarHorario(DateTime d) {
+    String dois(int n) => n.toString().padLeft(2, '0');
+    return '${dois(d.day)}/${dois(d.month)}/${d.year} às ${dois(d.hour)}:${dois(d.minute)}';
+  }
+
   void _enviarProposta(BuildContext context, Chamado c) {
     final usuario = context.read<AuthProvider>().usuario;
     if (usuario == null) return;
     final prov = context.read<ChamadoProvider>();
     final valor = TextEditingController();
     final msg = TextEditingController();
+    DateTime? horario;
 
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text('Proposta: ${c.titulo}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: valor,
-              keyboardType:
-              const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Valor (R\$)'),
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('Proposta: ${c.titulo}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: valor,
+                  keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Valor (R\$)'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: msg,
+                  decoration: const InputDecoration(labelText: 'Mensagem'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.schedule),
+                  label: Text(horario == null
+                      ? 'Escolher horário de atendimento'
+                      : _formatarHorario(horario!)),
+                  onPressed: () async {
+                    final agora = DateTime.now();
+                    final data = await showDatePicker(
+                      context: ctx,
+                      initialDate: agora,
+                      firstDate: agora,
+                      lastDate: agora.add(const Duration(days: 60)),
+                    );
+                    if (data == null || !ctx.mounted) return;
+                    final hora = await showTimePicker(
+                      context: ctx,
+                      initialTime: const TimeOfDay(hour: 9, minute: 0),
+                    );
+                    if (hora == null) return;
+                    setLocal(() => horario = DateTime(
+                        data.year, data.month, data.day, hora.hour, hora.minute));
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: msg,
-              decoration: const InputDecoration(labelText: 'Mensagem'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final v = double.tryParse(valor.text.replaceAll(',', '.'));
+                if (v == null || v <= 0) return;
+                if (horario == null) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                      content: Text('Escolha o horário de atendimento.')));
+                  return;
+                }
+                final agora = DateTime.now();
+                Navigator.pop(dialogCtx);
+                await prov.adicionarProposta(Proposta(
+                  id: 'prop_${agora.millisecondsSinceEpoch}',
+                  chamadoId: c.id,
+                  prestadorId: usuario.id,
+                  prestadorNome: usuario.nome,
+                  valor: v,
+                  mensagem: msg.text.trim(),
+                  horario: horario,
+                  criadaEm: agora,
+                ));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Proposta enviada!')),
+                  );
+                }
+              },
+              child: const Text('Enviar'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final v = double.tryParse(valor.text.replaceAll(',', '.'));
-              if (v == null || v <= 0) return;
-              final agora = DateTime.now();
-              Navigator.pop(dialogCtx);
-              await prov.adicionarProposta(Proposta(
-                id: 'prop_${agora.millisecondsSinceEpoch}',
-                chamadoId: c.id,
-                prestadorId: usuario.id,
-                prestadorNome: usuario.nome,
-                valor: v,
-                mensagem: msg.text.trim(),
-                criadaEm: agora,
-              ));
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Proposta enviada!')),
-                );
-              }
-            },
-            child: const Text('Enviar'),
-          ),
-        ],
       ),
     );
   }
@@ -87,6 +128,12 @@ class DashboardPrestadorScreen extends StatelessWidget {
     final filtrados =
     esp == null ? todos : todos.where((c) => c.categoria == esp).toList();
 
+    final pendentes = context
+        .watch<ChamadoProvider>()
+        .propostasDoPrestador(usuario?.id ?? '')
+        .where((p) => p.vezDoPrestador)
+        .length;
+
     final itens = filtrados
         .map((c) =>
     (chamado: c, km: distanciaKm(loc.lat, loc.lng, c.lat, c.lng)))
@@ -97,6 +144,19 @@ class DashboardPrestadorScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Chamados na sua região'),
         actions: [
+          IconButton(
+            tooltip: 'Minhas propostas',
+            icon: Badge(
+              isLabelVisible: pendentes > 0,
+              label: Text('$pendentes'),
+              child: const Icon(Icons.request_quote),
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const MinhasPropostasScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.account_circle),
             tooltip: 'Perfil',

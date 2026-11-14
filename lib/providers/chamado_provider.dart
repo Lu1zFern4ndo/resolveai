@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -7,14 +9,13 @@ import '../core/models/proposta.dart';
 import '../core/services/camera_service.dart';
 import '../core/services/notification_service.dart';
 import '../core/utils/distance_utils.dart';
-import 'dart:convert';
-import 'dart:io';
 
 class ChamadoProvider extends ChangeNotifier {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   List<Chamado> _todos = [];
   List<Proposta> _propostas = [];
+  StreamSubscription<User?>? _subAuth;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subChamados;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subPropostas;
   bool _primeiraCargaPropostas = true;
@@ -22,12 +23,31 @@ class ChamadoProvider extends ChangeNotifier {
   String? erro;
 
   ChamadoProvider() {
-    _ouvir();
+    _subAuth = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user == null) {
+        _pararEscuta();
+        _todos = [];
+        _propostas = [];
+        notifyListeners();
+      } else {
+        _iniciarEscuta();
+      }
+    });
   }
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
-  void _ouvir() {
+  void _pararEscuta() {
+    _subChamados?.cancel();
+    _subPropostas?.cancel();
+    _subChamados = null;
+    _subPropostas = null;
+  }
+
+  void _iniciarEscuta() {
+    _pararEscuta();
+    _primeiraCargaPropostas = true;
+
     _subChamados = _db
         .collection('chamados')
         .orderBy('criadoEm', descending: true)
@@ -36,47 +56,74 @@ class ChamadoProvider extends ChangeNotifier {
       _todos = snap.docs.map((d) => Chamado.fromMap(d.data())).toList();
       erro = null;
       notifyListeners();
-    }, onError: (_) {
+    }, onError: (e) {
       erro = 'Não foi possível carregar os chamados.';
+      debugPrint('Erro chamados: $e');
       notifyListeners();
     });
 
     _subPropostas = _db.collection('propostas').snapshots().listen((snap) {
       _propostas = snap.docs.map((d) => Proposta.fromMap(d.data())).toList();
 
-      // Na primeira carga não avisa (são propostas antigas).
       if (!_primeiraCargaPropostas) {
-        for (final mudanca in snap.docChanges) {
-          if (mudanca.type == DocumentChangeType.added &&
-              mudanca.doc.data() != null) {
-            _avisar(Proposta.fromMap(mudanca.doc.data()!));
+        for (final m in snap.docChanges) {
+          final data = m.doc.data();
+          if (data == null) continue;
+          final p = Proposta.fromMap(data);
+
+          if (m.type == DocumentChangeType.added) {
+            _avisarNovaProposta(p);
+          } else if (m.type == DocumentChangeType.modified &&
+              p.status == StatusProposta.negociando) {
+            _avisarContraproposta(p);
           }
         }
       }
       _primeiraCargaPropostas = false;
       notifyListeners();
-    }, onError: (_) {
+    }, onError: (e) {
       erro = 'Não foi possível carregar as propostas.';
+      debugPrint('Erro propostas: $e');
       notifyListeners();
     });
   }
 
-  void _avisar(Proposta p) {
+  String _moeda(double v) => 'R\$ ${v.toStringAsFixed(2).replaceAll('.', ',')}';
+
+  void _avisarNovaProposta(Proposta p) {
     final uid = _uid;
     if (uid == null) return;
     final meu = _todos.any((c) => c.id == p.chamadoId && c.clienteId == uid);
     if (!meu) return;
-
-    final valor = p.valor.toStringAsFixed(2).replaceAll('.', ',');
     NotificationService.instance.mostrar(
       'Nova proposta recebida',
-      '${p.prestadorNome} enviou um orçamento de R\$ $valor',
+      '${p.prestadorNome} enviou um orçamento de ${_moeda(p.valor)}',
     );
   }
 
+  void _avisarContraproposta(Proposta p) {
+    final uid = _uid;
+    if (uid == null) return;
+
+    if (p.ultimoOfertante == 'cliente' && p.prestadorId == uid) {
+      NotificationService.instance.mostrar(
+        'Contraproposta do cliente',
+        'O cliente ofereceu ${_moeda(p.valor)}. Aceite ou responda.',
+      );
+    } else if (p.ultimoOfertante == 'prestador') {
+      final meu = _todos.any((c) => c.id == p.chamadoId && c.clienteId == uid);
+      if (meu) {
+        NotificationService.instance.mostrar(
+          'Contraproposta do prestador',
+          '${p.prestadorNome} ofereceu ${_moeda(p.valor)}. Aceite ou responda.',
+        );
+      }
+    }
+  }
 
   List<Chamado> get chamados =>
       _todos.where((c) => c.clienteId == _uid).toList();
+
 
   List<Chamado> get chamadosAbertos => _todos
       .where((c) =>
@@ -84,8 +131,19 @@ class ChamadoProvider extends ChangeNotifier {
       c.status == StatusChamado.comProposta)
       .toList();
 
+  Chamado? chamadoPorId(String id) {
+    for (final c in _todos) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
   List<Proposta> propostasDo(String chamadoId) =>
       _propostas.where((p) => p.chamadoId == chamadoId).toList();
+
+  List<Proposta> propostasDoPrestador(String prestadorId) =>
+      _propostas.where((p) => p.prestadorId == prestadorId).toList()
+        ..sort((a, b) => b.criadaEm.compareTo(a.criadaEm));
 
   Future<void> criarChamado(Chamado chamado) async {
     var c = chamado.copyWith(clienteId: _uid ?? '');
@@ -93,14 +151,12 @@ class ChamadoProvider extends ChangeNotifier {
     if (c.fotoPath != null) {
       final caminho = await CameraService.salvarPermanente(c.fotoPath!);
       c = c.copyWith(fotoPath: caminho);
-
       try {
         final bytes = await File(caminho).readAsBytes();
         if (bytes.length <= 700 * 1024) {
           c = c.copyWith(fotoBase64: base64Encode(bytes));
         }
-      } catch (_) {
-      }
+      } catch (_) {}
     }
 
     await _db.collection('chamados').doc(c.id).set(c.toMap());
@@ -132,6 +188,25 @@ class ChamadoProvider extends ChangeNotifier {
     await batch.commit();
   }
 
+  Future<void> recusarProposta(String propostaId) async {
+    await _db
+        .collection('propostas')
+        .doc(propostaId)
+        .update({'status': StatusProposta.recusada.name});
+  }
+
+  Future<void> contraproposta(
+      String propostaId,
+      double valor, {
+        required bool porCliente,
+      }) async {
+    await _db.collection('propostas').doc(propostaId).update({
+      'valor': valor,
+      'ultimoOfertante': porCliente ? 'cliente' : 'prestador',
+      'status': StatusProposta.negociando.name,
+    });
+  }
+
   List<({Chamado chamado, double km})> chamadosAbertosPerto(
       double lat, double lng) {
     return chamadosAbertos
@@ -142,8 +217,8 @@ class ChamadoProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _subChamados?.cancel();
-    _subPropostas?.cancel();
+    _subAuth?.cancel();
+    _pararEscuta();
     super.dispose();
   }
 }
